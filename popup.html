@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Productivity Tracker</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="popup-container">
+    <h1>Productivity Tracker</h1>
+    <div class="stat-card">
+      <h2>Total Time Today</h2>
+      <p id="total-time">Loading...</p>
+    </div>
+    <div class="stat-card">
+      <h2>Productive vs Unproductive</h2>
+      <p id="productive-time">Productive: 0m</p>
+      <p id="unproductive-time">Unproductive: 0m</p>
+    </div>
+    <div class="stat-card">
+      <h2>Top 3 Sites</h2>
+      <ol id="top-sites"></ol>
+    </div>
+    <button id="refresh-btn">Refresh</button>
+  </div>
+  <script src="popup.js"></script>
+</body>
+</html>
