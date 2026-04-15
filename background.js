@@ -7,6 +7,7 @@ let trackingState = {
   activeDomain: null,
   lastActiveTime: null
 };
+let trackingStateLoaded = false;
 
 function getDomainFromUrl(url) {
   try {
@@ -35,6 +36,19 @@ function classifyDomain(domain) {
   if (PRODUCTIVE_DOMAINS.includes(domain)) return "productive";
   if (UNPRODUCTIVE_DOMAINS.includes(domain)) return "unproductive";
   return "neutral";
+}
+
+async function persistTrackingState() {
+  await chrome.storage.local.set({ trackingState });
+}
+
+async function restoreTrackingState() {
+  if (trackingStateLoaded) return;
+  trackingStateLoaded = true;
+  const stored = await chrome.storage.local.get(["trackingState"]);
+  if (stored.trackingState) {
+    trackingState = stored.trackingState;
+  }
 }
 
 async function saveUsage(domain, durationMs) {
@@ -79,26 +93,31 @@ async function updateActiveTabUsage() {
 
   await saveUsage(trackingState.activeDomain, durationMs);
   trackingState.lastActiveTime = Date.now();
+  await persistTrackingState();
 }
 
 async function refreshActiveTabInfo() {
   try {
+    await restoreTrackingState();
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
     if (!tab || !tab.url) {
       trackingState = { activeTabId: null, activeWindowId: null, activeDomain: null, lastActiveTime: null };
+      await persistTrackingState();
       return;
     }
 
     const domain = getDomainFromUrl(tab.url);
     if (!domain) {
       trackingState = { activeTabId: null, activeWindowId: null, activeDomain: null, lastActiveTime: null };
+      await persistTrackingState();
       return;
     }
 
     if (trackingState.activeTabId === tab.id && trackingState.activeWindowId === tab.windowId && trackingState.activeDomain === domain) {
-      // The same active tab is still open; save the elapsed time and continue tracking.
+      // Same active tab still open: save elapsed time and continue tracking.
       await updateActiveTabUsage();
       trackingState.lastActiveTime = Date.now();
+      await persistTrackingState();
       return;
     }
 
@@ -107,6 +126,7 @@ async function refreshActiveTabInfo() {
     trackingState.activeWindowId = tab.windowId;
     trackingState.activeDomain = domain;
     trackingState.lastActiveTime = Date.now();
+    await persistTrackingState();
   } catch (error) {
     console.error('Error refreshing active tab info:', error);
   }
@@ -126,6 +146,7 @@ chrome.tabs.onRemoved.addListener(async (tabId) => {
   if (tabId === trackingState.activeTabId) {
     await updateActiveTabUsage();
     trackingState = { activeTabId: null, activeWindowId: null, activeDomain: null, lastActiveTime: null };
+    await persistTrackingState();
   }
 });
 
@@ -133,6 +154,7 @@ chrome.windows.onFocusChanged.addListener(async (windowId) => {
   if (windowId === chrome.windows.WINDOW_ID_NONE) {
     await updateActiveTabUsage();
     trackingState = { activeTabId: null, activeWindowId: null, activeDomain: null, lastActiveTime: null };
+    await persistTrackingState();
     return;
   }
   await refreshActiveTabInfo();
