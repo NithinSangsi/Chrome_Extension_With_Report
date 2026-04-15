@@ -95,13 +95,18 @@ async function refreshActiveTabInfo() {
       return;
     }
 
-    if (trackingState.activeTabId !== tab.id || trackingState.activeWindowId !== tab.windowId) {
+    if (trackingState.activeTabId === tab.id && trackingState.activeWindowId === tab.windowId && trackingState.activeDomain === domain) {
+      // The same active tab is still open; save the elapsed time and continue tracking.
       await updateActiveTabUsage();
-      trackingState.activeTabId = tab.id;
-      trackingState.activeWindowId = tab.windowId;
-      trackingState.activeDomain = domain;
       trackingState.lastActiveTime = Date.now();
+      return;
     }
+
+    await updateActiveTabUsage();
+    trackingState.activeTabId = tab.id;
+    trackingState.activeWindowId = tab.windowId;
+    trackingState.activeDomain = domain;
+    trackingState.lastActiveTime = Date.now();
   } catch (error) {
     console.error('Error refreshing active tab info:', error);
   }
@@ -134,13 +139,21 @@ chrome.windows.onFocusChanged.addListener(async (windowId) => {
 });
 
 chrome.alarms.create("dailyReset", { periodInMinutes: 30 });
+chrome.alarms.create("activeTabUpdate", { periodInMinutes: 1 });
 chrome.alarms.onAlarm.addListener(async (alarm) => {
-  if (alarm.name !== "dailyReset") return;
-  const todayKey = getTodayKey();
-  const storageData = await chrome.storage.local.get(["dailyUsage"]);
-  const dailyUsage = storageData.dailyUsage || {};
-  if (!dailyUsage[todayKey]) {
-    await chrome.storage.local.set({ dailyUsage });
+  if (alarm.name === "dailyReset") {
+    const todayKey = getTodayKey();
+    const storageData = await chrome.storage.local.get(["dailyUsage"]);
+    const dailyUsage = storageData.dailyUsage || {};
+    if (!dailyUsage[todayKey]) {
+      await chrome.storage.local.set({ dailyUsage });
+    }
+    return;
+  }
+
+  if (alarm.name === "activeTabUpdate") {
+    await refreshActiveTabInfo();
+    return;
   }
 });
 
