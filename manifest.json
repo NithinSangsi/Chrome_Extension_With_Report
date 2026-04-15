@@ -3,7 +3,7 @@
   "name": "Productivity Tracker",
   "description": "Track browsing time, classify websites, and view productivity analytics.",
   "version": "1.0.0",
-  "permissions": ["tabs", "storage"],
+  "permissions": ["tabs", "storage", "alarms"],
   "background": {
     "service_worker": "background.js"
   },

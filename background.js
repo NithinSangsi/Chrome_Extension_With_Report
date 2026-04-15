@@ -55,7 +55,7 @@ async function saveUsage(domain, durationMs) {
 
   // Send to server for MongoDB storage
   try {
-    await fetch('http://localhost:4001/save-usage', {
+    await fetch('http://localhost:4000/save-usage', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
