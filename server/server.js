@@ -22,7 +22,7 @@ async function connectDb() {
   const client = new MongoClient(uri);
   await client.connect();
   db = client.db('productivity-tracker');
-  await db.collection('usage').createIndex({ date: 1 });
+  await db.collection('usage').createIndex({ date: 1, domain: 1 });
 }
 
 app.post('/save-usage', async (req, res) => {
@@ -33,7 +33,39 @@ app.post('/save-usage', async (req, res) => {
   if (!db) {
     return res.status(500).json({ error: 'Database not connected.' });
   }
-  await db.collection('usage').insertOne(payload);
+  
+  // Use aggregation pipeline to correctly convert ms → seconds → minutes → hours
+  await db.collection('usage').updateOne(
+    { date: payload.date, domain: payload.domain },
+    [
+      {
+        // Stage 1: Add new ms to existing ms
+        $set: {
+          ms: { $add: [{ $ifNull: ['$ms', 0] }, payload.ms] },
+          updatedAt: new Date()
+        }
+      },
+      {
+        // Stage 2: Convert ms to seconds, then seconds to minutes, then minutes to hours
+        $set: {
+          seconds: { $floor: { $divide: ['$ms', 1000] } }
+        }
+      },
+      {
+        // Stage 3: Calculate minutes from total seconds
+        $set: {
+          minutes: { $floor: { $divide: ['$seconds', 60] } }
+        }
+      },
+      {
+        // Stage 4: Calculate hours from total minutes
+        $set: {
+          hours: { $floor: { $divide: ['$minutes', 60] } }
+        }
+      }
+    ],
+    { upsert: true }
+  );
   res.json({ success: true });
 });
 
